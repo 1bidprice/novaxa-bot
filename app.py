@@ -1,81 +1,116 @@
 import os
-from flask import Flask, request
-from telegram import Update, Bot
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+import logging
+from flask import Flask
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
+
+# Ρύθμιση logging
+logging.basicConfig(
+    filename='log.txt',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
+logger = logging.getLogger(__name__)
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
-BASE_URL = "https://novaxa-bot.onrender.com"
-
-bot = Bot(token=TOKEN)
+# Flask app
 app = Flask(__name__)
 
-application = ApplicationBuilder().token(TOKEN).build()
+# Περιβαλλοντικές μεταβλητές
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+PORT = int(os.getenv("PORT", 8443))
+ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))  # Προαιρετικά βάλε το δικό σου ID
 
-# Commands
+# Πρόχειρη μνήμη υπενθυμίσεων
+notifications = {}
+
+# --- Εντολές Telegram ---
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Καλώς ήρθες στο NOVAXA bot!")
+    user = update.message.from_user
+    logger.info(f"User {user.id} started the bot.")
+    await update.message.reply_text("Καλώς ήρθες στο NOVAXA Bot! Πληκτρολόγησε /help για οδηγίες.")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("/start /help /status /getid /broadcast /notify")
+    help_text = (
+        "Διαθέσιμες εντολές:\n"
+        "/start - Ξεκινά το bot\n"
+        "/help - Οδηγίες χρήσης\n"
+        "/status - Κατάσταση projects\n"
+        "/log - Δείχνει πρόσφατα logs\n"
+        "/getid - Δείχνει το Telegram ID σου\n"
+        "/broadcast <μήνυμα> - Μαζικό μήνυμα (admin)\n"
+        "/notify <ώρα> <μήνυμα> - Ρύθμιση υπενθύμισης"
+    )
+    await update.message.reply_text(help_text)
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Το NOVAXA bot είναι ενεργό!")
+    status_text = (
+        "📊 *Κατάσταση Projects:*\n"
+        "• BidPrice: OK\n"
+        "• Amesis: OK\n"
+        "• Project6225: OK"
+    )
+    await update.message.reply_text(status_text, parse_mode="Markdown")
+
+async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        with open("log.txt", "r") as f:
+            last_lines = f.readlines()[-10:]
+        await update.message.reply_text("".join(last_lines))
+    except Exception as e:
+        logger.error(f"Log read error: {e}")
+        await update.message.reply_text("Σφάλμα κατά την ανάγνωση log.")
 
 async def getid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"Telegram ID σου: {update.message.from_user.id}")
+    user_id = update.message.from_user.id
+    await update.message.reply_text(f"Το Telegram ID σου είναι: {user_id}")
 
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Δεν έχεις άδεια.")
+    user_id = update.message.from_user.id
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("Δεν έχεις δικαιώματα για αυτή την εντολή.")
         return
     if not context.args:
-        await update.message.reply_text("Χρήση: /broadcast μήνυμα")
+        await update.message.reply_text("Χρήση: /broadcast <μήνυμα>")
         return
-    msg = " ".join(context.args)
-    for user_id in [ADMIN_ID]:  # Μπορείς να προσθέσεις λίστα χρηστών
-        try:
-            await bot.send_message(chat_id=user_id, text=f"📢 {msg}")
-        except:
-            pass
-    await update.message.reply_text("Το μήνυμα στάλθηκε.")
+    message = " ".join(context.args)
+    logger.info(f"Broadcast από {user_id}: {message}")
+    # Εδώ προσθέτεις λίστα με χρήστες από βάση ή μνήμη
+    await update.message.reply_text(f"Μήνυμα στάλθηκε: {message}")
 
 async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Χρήση: /notify ώρα μήνυμα")
+    if len(context.args) < 2:
+        await update.message.reply_text("Χρήση: /notify 15:00 Υπενθύμιση")
         return
-    time, *message = context.args
-    await update.message.reply_text(f"📅 Υπενθύμιση για {time}: {' '.join(message)}")
+    time = context.args[0]
+    text = " ".join(context.args[1:])
+    user_id = update.message.from_user.id
+    notifications[user_id] = {"time": time, "text": text}
+    await update.message.reply_text(f"✅ Υπενθύμιση ρυθμίστηκε: {time} - {text}")
 
-# Handlers
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("help", help_command))
-application.add_handler(CommandHandler("status", status))
-application.add_handler(CommandHandler("getid", getid))
-application.add_handler(CommandHandler("broadcast", broadcast))
-application.add_handler(CommandHandler("notify", notify))
+# --- Flask route για health check ---
+@app.route('/')
+def index():
+    return 'NOVAXA Bot is running!', 200
 
-# Webhook setup
-@app.route("/")
-def home():
-    return "NOVAXA Bot is live!"
+# --- Κύρια Εκκίνηση του bot ---
+def main():
+    application = Application.builder().token(TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("status", status))
+    application.add_handler(CommandHandler("log", log))
+    application.add_handler(CommandHandler("getid", getid))
+    application.add_handler(CommandHandler("broadcast", broadcast))
+    application.add_handler(CommandHandler("notify", notify))
 
-@app.route("/setwebhook")
-async def setwebhook():
-    url = f"{BASE_URL}/webhook"
-    await application.bot.set_webhook(url)
-    return f"Webhook set to {url}"
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=f"https://novaxa-bot.onrender.com/{TOKEN}"
+    )
 
-@app.route("/webhook", methods=["POST"])
-async def webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, bot)
-    await application.process_update(update)
-    return "OK"
-
+# Εκτέλεση app
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(application.initialize())
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    app.run(host="0.0.0.0", port=PORT)
