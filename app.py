@@ -1,10 +1,10 @@
 import os
 import logging
-from flask import Flask
+from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes, Dispatcher
 
-# Logging setup
+# Logging
 logging.basicConfig(
     filename='log.txt',
     level=logging.INFO,
@@ -12,18 +12,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Flask app
+# App setup
 app = Flask(__name__)
-
-# Περιβαλλοντικές μεταβλητές
 TOKEN = os.getenv("TELEGRAM_TOKEN")
-PORT = int(os.getenv("PORT", 10000))
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
+PORT = int(os.getenv("PORT", 10000))
 
-# Bot προσωρινή μνήμη
+# Bot app
+application = Application.builder().token(TOKEN).build()
+
+# Cache for notifications
 notifications = {}
 
-# Εντολές bot
+# Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Καλώς ήρθες στο NOVAXA Bot! Πληκτρολόγησε /help για οδηγίες.")
 
@@ -62,7 +63,6 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     message = " ".join(context.args)
     await update.message.reply_text(f"Μήνυμα στάλθηκε: {message}")
-    # Εδώ μπορείς να βάλεις λίστα με chat_ids χρηστών για αποστολή
 
 async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args) < 2:
@@ -73,30 +73,35 @@ async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     notifications[update.message.from_user.id] = {"time": time, "message": message}
     await update.message.reply_text(f"Υπενθύμιση ορίστηκε: {time} - {message}")
 
-# Route για έλεγχο από browser
+# Routes
 @app.route('/')
 def home():
     return "NOVAXA Bot is live!"
 
-# Εκκίνηση bot με webhook
-def main():
-    application = Application.builder().token(TOKEN).build()
+@app.route(f'/{TOKEN}', methods=['POST'])
+async def webhook():
+    update = Update.de_json(request.get_json(force=True), application.bot)
+    await application.process_update(update)
+    return 'OK'
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("status", status))
-    application.add_handler(CommandHandler("log", log))
-    application.add_handler(CommandHandler("getid", getid))
-    application.add_handler(CommandHandler("broadcast", broadcast))
-    application.add_handler(CommandHandler("notify", notify))
+# Εγκατάσταση webhook
+@app.before_first_request
+def setup_webhook():
+    from telegram import Bot
+    bot = Bot(token=TOKEN)
+    bot.delete_webhook()
+    bot.set_webhook(url=f"https://novaxa.onrender.com/{TOKEN}")
+    logger.info("Webhook set successfully.")
 
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=f"https://novaxa.onrender.com/{TOKEN}"
-    )
+# Add handlers
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("help", help_command))
+application.add_handler(CommandHandler("status", status))
+application.add_handler(CommandHandler("log", log))
+application.add_handler(CommandHandler("getid", getid))
+application.add_handler(CommandHandler("broadcast", broadcast))
+application.add_handler(CommandHandler("notify", notify))
 
-if __name__ == "__main__":
-    main()
-    app.run(host="0.0.0.0", port=PORT)
+# Run Flask app
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=PORT)
