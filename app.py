@@ -1,15 +1,16 @@
 import os
 import logging
-from flask import Flask
+from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Ρύθμιση logging
+# Logging
 logging.basicConfig(
-    filename="log.txt",
+    filename='log.txt',
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
+
 logger = logging.getLogger(__name__)
 
 # Flask app
@@ -18,9 +19,9 @@ app = Flask(__name__)
 # Περιβαλλοντικές μεταβλητές
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 PORT = int(os.getenv("PORT", 8443))
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))  # Προσοχή: πρέπει να είναι αριθμός (int)
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-# Μνήμη για υπενθυμίσεις
+# Προσωρινή μνήμη υπενθυμίσεων
 notifications = {}
 
 # Εντολές bot
@@ -29,13 +30,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "/start - Έναρξη\n"
+        "/start - Ξεκινά το bot\n"
         "/help - Οδηγίες\n"
-        "/status - Έλεγχος υπηρεσιών\n"
-        "/log - Τελευταία logs\n"
+        "/status - Κατάσταση συστημάτων\n"
+        "/log - Δείχνει logs\n"
         "/getid - Το Telegram ID σου\n"
         "/broadcast - Μαζικό μήνυμα (admin)\n"
-        "/notify - Ρύθμιση υπενθύμισης"
+        "/notify - Υπενθύμιση\n"
     )
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -47,40 +48,47 @@ async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines = file.readlines()[-5:]
             await update.message.reply_text("".join(lines))
     except Exception as e:
+        await update.message.reply_text("Σφάλμα ανάγνωσης log.")
         logger.error(e)
-        await update.message.reply_text("Σφάλμα ανάγνωσης αρχείου log.")
 
 async def getid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    await update.message.reply_text(f"Το Telegram ID σου είναι: {user_id}")
+    await update.message.reply_text(f"Telegram ID σου: {update.message.from_user.id}")
 
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != ADMIN_ID:
-        await update.message.reply_text("Δεν έχεις άδεια για αυτή την εντολή.")
+        await update.message.reply_text("Δεν έχεις άδεια.")
         return
     if not context.args:
         await update.message.reply_text("Χρήση: /broadcast Μήνυμα")
         return
-    message = " ".join(context.args)
-    await update.message.reply_text(f"Μήνυμα στάλθηκε: {message}")
-    # Εδώ μπορείς να προσθέσεις broadcast logic για registered users
+    msg = " ".join(context.args)
+    await update.message.reply_text(f"Μήνυμα στάλθηκε: {msg}")
+    # Εδώ μπορείς να προσθέσεις αποστολή σε χρήστες
 
 async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args or len(context.args) < 2:
+    if not context.args:
         await update.message.reply_text("Χρήση: /notify 15:00 Μήνυμα")
         return
-    time = context.args[0]
-    message = " ".join(context.args[1:])
-    notifications[update.message.from_user.id] = {"time": time, "message": message}
-    await update.message.reply_text(f"Υπενθύμιση ορίστηκε για τις {time}: {message}")
+    time, *message = context.args
+    notifications[update.message.from_user.id] = {"time": time, "message": " ".join(message)}
+    await update.message.reply_text(f"Υπενθύμιση ορίστηκε: {time} - {' '.join(message)}")
 
-# Αρχική σελίδα (χρήσιμη για το UptimeRobot)
-@app.route("/")
-def index():
-    return "NOVAXA Bot is live!"
+# Flask route για έλεγχο
+@app.route('/')
+def home():
+    return 'NOVAXA bot is live!'
+
+# Webhook endpoint (πρέπει να είναι /TOKEN)
+@app.route(f'/{TOKEN}', methods=['POST'])
+def webhook():
+    if request.method == "POST":
+        update = Update.de_json(request.get_json(force=True), application.bot)
+        application.update_queue.put(update)
+    return 'OK'
 
 # Εκκίνηση bot
 def main():
+    global application
     application = Application.builder().token(TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -91,6 +99,7 @@ def main():
     application.add_handler(CommandHandler("broadcast", broadcast))
     application.add_handler(CommandHandler("notify", notify))
 
+    # Ρύθμιση webhook
     application.run_webhook(
         listen="0.0.0.0",
         port=PORT,
@@ -98,8 +107,5 @@ def main():
         webhook_url=f"https://novaxa.onrender.com/{TOKEN}"
     )
 
-# Εκτέλεση app και bot
 if __name__ == "__main__":
-    import threading
-    threading.Thread(target=main).start()
-    app.run(host="0.0.0.0", port=PORT)
+    main()
