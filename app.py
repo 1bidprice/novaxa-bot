@@ -15,11 +15,12 @@ logger = logging.getLogger(__name__)
 # Flask app
 app = Flask(__name__)
 
-# Token & Port από περιβαλλοντικές μεταβλητές
+# Token & Port & Admin από περιβαλλοντικές μεταβλητές
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 PORT = int(os.getenv("PORT", 8443))
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-# Bot notifications (προσωρινή μνήμη)
+# Προσωρινή μνήμη υπενθυμίσεων
 notifications = {}
 
 # Telegram bot commands
@@ -39,9 +40,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(help_text)
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "BidPrice: OK\nAmesis: OK\nProject6225: OK"
-    )
+    await update.message.reply_text("BidPrice: OK\nAmesis: OK\nProject6225: OK")
 
 async def log(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -57,8 +56,7 @@ async def getid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Telegram ID σου: {user_id}")
 
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    admin_id = 123456789  # <-- άλλαξε το με το δικό σου
-    if update.message.from_user.id != admin_id:
+    if update.message.from_user.id != ADMIN_ID:
         await update.message.reply_text("Δεν έχεις άδεια.")
         return
     if not context.args:
@@ -76,12 +74,15 @@ async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     notifications[update.message.from_user.id] = {"time": time, "message": message}
     await update.message.reply_text(f"Υπενθύμιση ορίστηκε: {time} - {message}")
 
+# Flask route για επιβεβαίωση
 @app.route('/')
 def home():
     return "NOVAXA Bot is live!"
 
+# Εκκίνηση του bot με webhook
 def main():
     application = Application.builder().token(TOKEN).build()
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("status", status))
