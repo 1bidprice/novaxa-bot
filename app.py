@@ -18,13 +18,12 @@ app = Flask(__name__)
 # Περιβαλλοντικές μεταβλητές
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 PORT = int(os.getenv("PORT", 8443))
-ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))  # Προαιρετικά βάλε το δικό σου ID
+ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
 
 # Πρόχειρη μνήμη υπενθυμίσεων
 notifications = {}
 
 # --- Εντολές Telegram ---
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     logger.info(f"User {user.id} started the bot.")
@@ -75,7 +74,6 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     message = " ".join(context.args)
     logger.info(f"Broadcast από {user_id}: {message}")
-    # Εδώ προσθέτεις λίστα με χρήστες από βάση ή μνήμη
     await update.message.reply_text(f"Μήνυμα στάλθηκε: {message}")
 
 async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -88,14 +86,15 @@ async def notify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     notifications[user_id] = {"time": time, "text": text}
     await update.message.reply_text(f"✅ Υπενθύμιση ρυθμίστηκε: {time} - {text}")
 
-# --- Flask route για health check ---
+# Health check
 @app.route('/')
 def index():
     return 'NOVAXA Bot is running!', 200
 
-# --- Κύρια Εκκίνηση του bot ---
+# Webhook εκκίνηση
 def main():
     application = Application.builder().token(TOKEN).build()
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("status", status))
@@ -111,6 +110,8 @@ def main():
         webhook_url=f"https://novaxa-bot.onrender.com/{TOKEN}"
     )
 
-# Εκτέλεση app
+# Flask + Bot ταυτόχρονα
 if __name__ == "__main__":
+    from threading import Thread
+    Thread(target=main).start()
     app.run(host="0.0.0.0", port=PORT)
