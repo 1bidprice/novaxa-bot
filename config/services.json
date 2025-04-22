@@ -1,0 +1,46 @@
+{
+  "services": {
+    "test_smtp": {
+      "id": "test_smtp",
+      "type": "smtp",
+      "name": "Test SMTP",
+      "config": {
+        "host": "smtp.example.com",
+        "port": 587,
+        "username": "test@example.com",
+        "password": "password",
+        "from_email": "test@example.com"
+      },
+      "created": "2025-04-22T22:00:15.270112",
+      "last_used": "2025-04-22T22:11:18.455836",
+      "status": "available"
+    },
+    "test_webhook": {
+      "id": "test_webhook",
+      "type": "http",
+      "name": "Test Webhook",
+      "config": {
+        "url": "https://example.com/webhook"
+      },
+      "created": "2025-04-22T22:00:15.274366",
+      "last_used": "2025-04-22T22:11:18.457355",
+      "status": "available"
+    },
+    "test_service": {
+      "id": "test_service",
+      "type": "http",
+      "name": "Test Service",
+      "config": {
+        "url": "https://example.com/api"
+      },
+      "created": "2025-04-22T22:11:18.451991",
+      "last_used": null,
+      "status": "registered"
+    }
+  },
+  "enabled_services": [
+    "test_webhook",
+    "test_smtp"
+  ],
+  "last_updated": "2025-04-22T22:11:18.457360"
+}

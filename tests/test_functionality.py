@@ -76,19 +76,19 @@ class TestTelegramAPI(unittest.TestCase):
         self.assertTrue(result["result"])
         mock_post.assert_called_once()
     
-    @patch('api.requests.post')
-    def test_remove_webhook(self, mock_post):
+    @patch('api.requests.get')
+    def test_remove_webhook(self, mock_get):
         """Test removing a webhook."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"ok": True, "result": True}
         mock_response.status_code = 200
-        mock_post.return_value = mock_response
+        mock_get.return_value = mock_response
         
-        result = self.api.remove_webhook()
+        result = self.api.delete_webhook()
         
         self.assertTrue(result["ok"])
         self.assertTrue(result["result"])
-        mock_post.assert_called_once()
+        mock_get.assert_called_once()
 
 
 class TestDataProcessor(unittest.TestCase):
@@ -257,9 +257,13 @@ class TestServiceIntegration(unittest.TestCase):
     
     def test_register_service(self):
         """Test registering a service."""
+        if "test_service" in self.integration.services:
+            self.integration.delete_service("test_service")
+            
         result = self.integration.register_service(
-            name="test_service",
+            service_id="test_service",
             service_type="http",
+            name="Test Service",
             config={"url": "https://example.com/api"}
         )
         
@@ -271,21 +275,23 @@ class TestServiceIntegration(unittest.TestCase):
     def test_enable_service(self):
         """Test enabling a service."""
         self.integration.register_service(
-            name="test_service",
+            service_id="test_service",
             service_type="http",
+            name="Test Service",
             config={"url": "https://example.com/api"}
         )
         
         result = self.integration.enable_service("test_service")
         
         self.assertTrue(result)
-        self.assertTrue(self.integration.services["test_service"]["enabled"])
+        self.assertIn("test_service", self.integration.enabled_services)
     
     def test_disable_service(self):
         """Test disabling a service."""
         self.integration.register_service(
-            name="test_service",
+            service_id="test_service",
             service_type="http",
+            name="Test Service",
             config={"url": "https://example.com/api"}
         )
         self.integration.enable_service("test_service")
@@ -293,13 +299,14 @@ class TestServiceIntegration(unittest.TestCase):
         result = self.integration.disable_service("test_service")
         
         self.assertTrue(result)
-        self.assertFalse(self.integration.services["test_service"]["enabled"])
+        self.assertNotIn("test_service", self.integration.enabled_services)
     
     def test_check_service(self):
         """Test checking a service."""
         self.integration.register_service(
-            name="test_service",
+            service_id="test_service",
             service_type="http",
+            name="Test Service",
             config={"url": "https://example.com/api"}
         )
         
@@ -310,7 +317,7 @@ class TestServiceIntegration(unittest.TestCase):
             
             result = self.integration.check_service("test_service")
             
-            self.assertTrue(result)
+            self.assertEqual(result.get("status"), "available")
             mock_get.assert_called_once()
 
 
@@ -328,13 +335,28 @@ class TestNotificationSystem(unittest.TestCase):
         mock_smtp_instance = MagicMock()
         mock_smtp.return_value = mock_smtp_instance
         
+        self.integration.register_service(
+            service_id="test_smtp",
+            service_type="smtp",
+            name="Test SMTP",
+            config={
+                "host": "smtp.example.com",
+                "port": 587,
+                "username": "test@example.com",
+                "password": "password",
+                "from_email": "test@example.com"
+            }
+        )
+        self.integration.enable_service("test_smtp")
+        
         result = self.notification.send_email(
+            service_id="test_smtp",
             to="test@example.com",
             subject="Test Subject",
             body="Test Body"
         )
         
-        self.assertTrue(result)
+        self.assertTrue(result.get("status") == "success")
         mock_smtp_instance.sendmail.assert_called_once()
     
     @patch('integration.requests.post')
@@ -344,12 +366,20 @@ class TestNotificationSystem(unittest.TestCase):
         mock_response.status_code = 200
         mock_post.return_value = mock_response
         
+        self.integration.register_service(
+            service_id="test_webhook",
+            service_type="http",
+            name="Test Webhook",
+            config={"url": "https://example.com/webhook"}
+        )
+        self.integration.enable_service("test_webhook")
+        
         result = self.notification.send_webhook(
-            url="https://example.com/webhook",
+            service_id="test_webhook",
             data={"message": "Test Message"}
         )
         
-        self.assertTrue(result)
+        self.assertTrue(result.get("status") == "success")
         mock_post.assert_called_once()
 
 
@@ -370,12 +400,36 @@ class TestEnhancedBot(unittest.TestCase):
         self.telebot_patcher = patch('enhanced_bot.telebot.TeleBot')
         self.mock_telebot = self.telebot_patcher.start()
         
+        self.telegram_api_patcher = patch('enhanced_bot.TelegramAPI')
+        self.mock_telegram_api = self.telegram_api_patcher.start()
+        
+        self.data_processor_patcher = patch('enhanced_bot.DataProcessor')
+        self.mock_data_processor = self.data_processor_patcher.start()
+        
+        self.system_monitor_patcher = patch('enhanced_bot.SystemMonitor')
+        self.mock_system_monitor = self.system_monitor_patcher.start()
+        
+        self.performance_tracker_patcher = patch('enhanced_bot.PerformanceTracker')
+        self.mock_performance_tracker = self.performance_tracker_patcher.start()
+        
+        self.service_integration_patcher = patch('enhanced_bot.ServiceIntegration')
+        self.mock_service_integration = self.service_integration_patcher.start()
+        
+        self.notification_system_patcher = patch('enhanced_bot.NotificationSystem')
+        self.mock_notification_system = self.notification_system_patcher.start()
+        
         self.bot = EnhancedBot()
     
     def tearDown(self):
         """Clean up after tests."""
         self.env_patcher.stop()
         self.telebot_patcher.stop()
+        self.telegram_api_patcher.stop()
+        self.data_processor_patcher.stop()
+        self.system_monitor_patcher.stop()
+        self.performance_tracker_patcher.stop()
+        self.service_integration_patcher.stop()
+        self.notification_system_patcher.stop()
     
     def test_init(self):
         """Test initialization."""

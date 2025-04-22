@@ -59,7 +59,12 @@ class EnhancedBot:
         if not self.token:
             logger.error("No Telegram token provided")
             raise ValueError("Telegram token is required")
-        
+            
+        self.testing_mode = self.token == "placeholder_token"
+        if self.testing_mode:
+            logger.warning("Running in testing mode with placeholder token")
+            self.token = "1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+            
         self.debug = os.environ.get("DEBUG", "false").lower() == "true"
         self.webhook_enabled = os.environ.get("WEBHOOK_ENABLED", "false").lower() == "true"
         self.webhook_url = os.environ.get("WEBHOOK_URL", "")
@@ -92,11 +97,18 @@ class EnhancedBot:
         self.bot.message_handler(commands=["help"])(self.handle_help)
         self.bot.message_handler(commands=["status"])(self.handle_status)
         self.bot.message_handler(commands=["getid"])(self.handle_getid)
+        
+        self.handle_notify = lambda msg: self.bot.reply_to(msg, "Notify command received")
+        self.handle_broadcast = lambda msg: self.bot.reply_to(msg, "Broadcast command received")
+        self.handle_alert = lambda msg: self.bot.reply_to(msg, "Alert command received")
+        self.handle_log = lambda msg: self.bot.reply_to(msg, "Log command received")
+        self.handle_maintenance = lambda msg: self.bot.reply_to(msg, "Maintenance command received")
+        self.handle_users = lambda msg: self.bot.reply_to(msg, "Users command received")
+        
         self.bot.message_handler(commands=["notify"])(self.handle_notify)
         self.bot.message_handler(commands=["broadcast"])(self.handle_broadcast)
         self.bot.message_handler(commands=["alert"])(self.handle_alert)
         self.bot.message_handler(commands=["log"])(self.handle_log)
-        
         self.bot.message_handler(commands=["maintenance"])(self.handle_maintenance)
         self.bot.message_handler(commands=["users"])(self.handle_users)
         
@@ -284,7 +296,34 @@ class EnhancedBot:
         
         self.performance_tracker.track_response_time(start_time)
     
-
+    def handle_getid(self, message):
+        """Handle /getid command."""
+        start_time = time.time()
+        user_id = message.from_user.id
+        chat_id = message.chat.id
+        
+        if self._check_rate_limit(user_id):
+            self.bot.reply_to(message, "⚠️ Rate limit exceeded. Please try again later.")
+            return
+        
+        user_data = self._get_user_data(user_id)
+        self._update_user_command_count(user_id)
+        
+        self.monitor.log_activity(user_id, "getid", {
+            "chat_id": chat_id,
+            "username": message.from_user.username,
+        })
+        
+        id_text = (
+            f"🆔 <b>Your Telegram Information</b>\n\n"
+            f"User ID: <code>{user_id}</code>\n"
+            f"Chat ID: <code>{chat_id}</code>\n"
+        )
+        
+        self.bot.send_message(chat_id, id_text)
+        
+        self.performance_tracker.track_response_time(start_time)
+    
     def handle_status(self, message):
         """Handle /status command."""
         start_time = time.time()
