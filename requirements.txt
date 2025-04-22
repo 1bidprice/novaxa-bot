@@ -1,3 +1,9 @@
-flask
-python-telegram-bot==20.8
-gunicorn
+python-telegram-bot==13.12
+requests>=2.27.1
+flask>=2.0.1
+gunicorn>=20.1.0
+psutil>=5.9.0
+python-dotenv>=0.19.2
+plotly>=5.6.0
+pandas>=1.4.2
+pytest>=7.0.0
