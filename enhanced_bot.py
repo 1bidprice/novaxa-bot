@@ -22,6 +22,9 @@ import telebot
 from telebot import types
 from telebot.apihelper import ApiTelegramException
 from dotenv import load_dotenv
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
 
 load_dotenv()
 
@@ -139,9 +142,7 @@ class EnhancedBot:
         
         self.bot.set_webhook(url=self.webhook_url)
         
-        from flask import Flask, request, jsonify
-        
-        app = Flask(__name__)
+        global app
         
         @app.route("/", methods=["GET"])
         def index():
@@ -161,7 +162,8 @@ class EnhancedBot:
             status = self.monitor.get_system_status()
             return jsonify(status)
         
-        app.run(host="0.0.0.0", port=self.port)
+        if not os.environ.get("RENDER", "false").lower() == "true":
+            app.run(host="0.0.0.0", port=self.port)
     
     def _start_polling(self):
         """Start the bot in polling mode."""
