@@ -1,0 +1,22 @@
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Render & deployment artifacts
+*.zip
+*.tar.gz
+venv/
