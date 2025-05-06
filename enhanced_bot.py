@@ -133,7 +133,7 @@ class EnhancedBot:
         else:
             self._start_polling()
     
-  def _start_webhook(self):
+    def _start_webhook(self):
     """Start the bot in webhook mode."""
     logger.info(f"Starting bot in webhook mode at {self.webhook_url}")
     
