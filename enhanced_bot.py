@@ -133,37 +133,37 @@ class EnhancedBot:
         else:
             self._start_polling()
     
-    def _start_webhook(self):
-        """Start the bot in webhook mode."""
-        logger.info(f"Starting bot in webhook mode at {self.webhook_url}")
-        
-        self.bot.remove_webhook()
-        time.sleep(0.5)
-        
-        self.bot.set_webhook(url=self.webhook_url)
-        
-        global app
-        
-        @app.route("/", methods=["GET"])
-        def index():
-            return jsonify({"status": "ok", "message": "NOVAXA Bot is running"})
-        
-        @app.route("/webhook", methods=["POST"])
-        def webhook():
-            if request.headers.get("content-type") == "application/json":
-                update = telebot.types.Update.de_json(request.stream.read().decode("utf-8"))
-                self.bot.process_new_updates([update])
-                return jsonify({"status": "ok"})
-            else:
-                return jsonify({"status": "error", "message": "Invalid content type"})
-        
-        @app.route("/health", methods=["GET"])
-        def health():
-            status = self.monitor.get_system_status()
-            return jsonify(status)
-        
-        if not os.environ.get("RENDER", "false").lower() == "true":
-            app.run(host="0.0.0.0", port=self.port)
+  def _start_webhook(self):
+    """Start the bot in webhook mode."""
+    logger.info(f"Starting bot in webhook mode at {self.webhook_url}")
+    
+    self.bot.remove_webhook()
+    time.sleep(0.5)
+    
+    self.bot.set_webhook(url=self.webhook_url)
+    
+    global app
+
+    @app.route("/", methods=["GET"])
+    def index():
+        return jsonify({"status": "ok", "message": "NOVAXA Bot is running"})
+
+    @app.route("/webhook", methods=["POST"])
+    def webhook():
+        if request.headers.get("content-type") == "application/json":
+            update = telebot.types.Update.de_json(request.stream.read().decode("utf-8"))
+            self.bot.process_new_updates([update])
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"status": "error", "message": "Invalid content type"})
+
+    @app.route("/health", methods=["GET"])
+    def health():
+        status = self.monitor.get_system_status()
+        return jsonify(status)
+
+    # ΠΑΝΤΑ τρέχει το app.run για Render webhook
+    app.run(host="0.0.0.0", port=self.port)
     
     def _start_polling(self):
         """Start the bot in polling mode."""
