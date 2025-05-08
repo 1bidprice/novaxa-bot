@@ -1,0 +1,1 @@
+curl -s -o novaxa_setup.sh https://raw.githubusercontent.com/1bidprice/novaxa-bot/devin/1746721919-automated-setup/one_command_download_simple.sh && chmod +x novaxa_setup.sh && ./novaxa_setup.sh
