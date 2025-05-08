@@ -563,3 +563,329 @@ def main():
 
 if __name__ == "__main__":
     main()
+    try:
+        if not os.path.exists(".env"):
+            print(f"{RED}.env file not found.{RESET}")
+            input(f"{BOLD}Press Enter to continue...{RESET}")
+            return
+        
+        print(f"{YELLOW}Current .env file contents:{RESET}")
+        print()
+        
+        with open(".env", "r") as f:
+            for line in f:
+                print(line.strip())
+        
+        print()
+        print(f"{YELLOW}Options:{RESET}")
+        print(f"1. Edit OWNER_ID")
+        print(f"2. Edit ADMIN_IDS")
+        print(f"3. Edit WEBHOOK settings")
+        print(f"4. Edit DEBUG settings")
+        print(f"0. Cancel")
+        print()
+        
+        choice = input(f"{BOLD}Enter your choice (0-4): {RESET}")
+        
+        if choice == "0":
+            return
+        elif choice == "1":
+            owner_id = input(f"{BOLD}Enter your Telegram ID (OWNER_ID): {RESET}")
+            
+            if not owner_id:
+                print(f"{RED}OWNER_ID cannot be empty.{RESET}")
+                input(f"{BOLD}Press Enter to continue...{RESET}")
+                return
+            
+            # Update .env file
+            with open(".env", "r") as f:
+                lines = f.readlines()
+            
+            with open(".env", "w") as f:
+                for line in lines:
+                    if line.startswith("OWNER_ID="):
+                        f.write(f"OWNER_ID={owner_id}\n")
+                    else:
+                        f.write(line)
+            
+            print(f"{GREEN}OWNER_ID updated.{RESET}")
+        elif choice == "2":
+            admin_ids = input(f"{BOLD}Enter admin Telegram IDs (comma-separated): {RESET}")
+            
+            # Update .env file
+            with open(".env", "r") as f:
+                lines = f.readlines()
+            
+            with open(".env", "w") as f:
+                for line in lines:
+                    if line.startswith("ADMIN_IDS="):
+                        f.write(f"ADMIN_IDS={admin_ids}\n")
+                    else:
+                        f.write(line)
+            
+            print(f"{GREEN}ADMIN_IDS updated.{RESET}")
+        elif choice == "3":
+            webhook_enabled = input(f"{BOLD}Enable webhook? (true/false): {RESET}")
+            
+            if webhook_enabled.lower() == "true":
+                webhook_url = input(f"{BOLD}Enter webhook URL: {RESET}")
+                port = input(f"{BOLD}Enter port (default: 8443): {RESET}")
+                
+                if not port:
+                    port = "8443"
+            else:
+                webhook_url = ""
+                port = "8443"
+            
+            # Update .env file
+            with open(".env", "r") as f:
+                lines = f.readlines()
+            
+            with open(".env", "w") as f:
+                for line in lines:
+                    if line.startswith("WEBHOOK_ENABLED="):
+                        f.write(f"WEBHOOK_ENABLED={webhook_enabled.lower()}\n")
+                    elif line.startswith("WEBHOOK_URL="):
+                        f.write(f"WEBHOOK_URL={webhook_url}\n")
+                    elif line.startswith("PORT="):
+                        f.write(f"PORT={port}\n")
+                    else:
+                        f.write(line)
+            
+            print(f"{GREEN}Webhook settings updated.{RESET}")
+        elif choice == "4":
+            debug = input(f"{BOLD}Enable debug? (true/false): {RESET}")
+            log_level = input(f"{BOLD}Enter log level (DEBUG/INFO/WARNING/ERROR): {RESET}")
+            
+            if not log_level:
+                log_level = "INFO"
+            
+            # Update .env file
+            with open(".env", "r") as f:
+                lines = f.readlines()
+            
+            with open(".env", "w") as f:
+                for line in lines:
+                    if line.startswith("DEBUG="):
+                        f.write(f"DEBUG={debug.lower()}\n")
+                    elif line.startswith("LOG_LEVEL="):
+                        f.write(f"LOG_LEVEL={log_level.upper()}\n")
+                    else:
+                        f.write(line)
+            
+            print(f"{GREEN}Debug settings updated.{RESET}")
+    except Exception as e:
+        print(f"{RED}Error editing .env file: {str(e)}{RESET}")
+    
+    print()
+    input(f"{BOLD}Press Enter to continue...{RESET}")
+
+def configure_webhook():
+    """Configure webhook."""
+    print_header()
+    print(f"{BOLD}{BLUE}Configure Webhook{RESET}")
+    print()
+    
+    try:
+        # Check if webhook is enabled
+        webhook_enabled = False
+        webhook_url = ""
+        port = "8443"
+        
+        if os.path.exists(".env"):
+            with open(".env", "r") as f:
+                for line in f:
+                    if line.startswith("WEBHOOK_ENABLED="):
+                        webhook_enabled = line.strip().split("=")[1].lower() == "true"
+                    elif line.startswith("WEBHOOK_URL="):
+                        webhook_url = line.strip().split("=")[1]
+                    elif line.startswith("PORT="):
+                        port = line.strip().split("=")[1]
+        
+        print(f"{YELLOW}Current webhook settings:{RESET}")
+        print(f"Enabled: {webhook_enabled}")
+        print(f"URL: {webhook_url}")
+        print(f"Port: {port}")
+        print()
+        
+        enable = input(f"{BOLD}Enable webhook? (y/n): {RESET}")
+        
+        if enable.lower() == "y":
+            url = input(f"{BOLD}Enter webhook URL: {RESET}")
+            new_port = input(f"{BOLD}Enter port (default: 8443): {RESET}")
+            
+            if not new_port:
+                new_port = "8443"
+            
+            # Update .env file
+            if os.path.exists(".env"):
+                with open(".env", "r") as f:
+                    lines = f.readlines()
+                
+                with open(".env", "w") as f:
+                    for line in lines:
+                        if line.startswith("WEBHOOK_ENABLED="):
+                            f.write("WEBHOOK_ENABLED=true\n")
+                        elif line.startswith("WEBHOOK_URL="):
+                            f.write(f"WEBHOOK_URL={url}\n")
+                        elif line.startswith("PORT="):
+                            f.write(f"PORT={new_port}\n")
+                        else:
+                            f.write(line)
+            
+            print(f"{GREEN}Webhook enabled with URL: {url} and port: {new_port}{RESET}")
+            print(f"{YELLOW}Please restart the bot to apply the new settings.{RESET}")
+        else:
+            # Update .env file
+            if os.path.exists(".env"):
+                with open(".env", "r") as f:
+                    lines = f.readlines()
+                
+                with open(".env", "w") as f:
+                    for line in lines:
+                        if line.startswith("WEBHOOK_ENABLED="):
+                            f.write("WEBHOOK_ENABLED=false\n")
+                        else:
+                            f.write(line)
+            
+            print(f"{GREEN}Webhook disabled.{RESET}")
+            print(f"{YELLOW}Please restart the bot to apply the new settings.{RESET}")
+    except Exception as e:
+        print(f"{RED}Error configuring webhook: {str(e)}{RESET}")
+    
+    print()
+    input(f"{BOLD}Press Enter to continue...{RESET}")
+
+def view_bot_configuration():
+    """View bot configuration."""
+    print_header()
+    print(f"{BOLD}{BLUE}Bot Configuration{RESET}")
+    print()
+    
+    try:
+        if not os.path.exists(".env"):
+            print(f"{RED}.env file not found.{RESET}")
+            input(f"{BOLD}Press Enter to continue...{RESET}")
+            return
+        
+        print(f"{YELLOW}.env file contents:{RESET}")
+        print()
+        
+        with open(".env", "r") as f:
+            for line in f:
+                if line.strip() and not line.strip().startswith("#"):
+                    key, value = line.strip().split("=", 1)
+                    
+                    if key in ["TELEGRAM_BOT_TOKEN", "NOVAXA_MASTER_KEY"]:
+                        value = value[:5] + "..." + value[-5:] if len(value) > 10 else "..."
+                    
+                    print(f"{key}: {value}")
+    except Exception as e:
+        print(f"{RED}Error viewing bot configuration: {str(e)}{RESET}")
+    
+    print()
+    input(f"{BOLD}Press Enter to continue...{RESET}")
+
+def main():
+    """Main function."""
+    show_main_menu()
+
+if __name__ == "__main__":
+    main()
+DASHEOF
+    echo -e "${GREEN}Termux dashboard created${RESET}"
+fi
+
+echo -e "\n${BOLD}${GREEN}=== Creating test script ===${RESET}"
+if [ ! -f test_token_management.py ]; then
+    cat > test_token_management.py << TESTEOF
+"""
+NOVAXA Bot Token Management Test Script
+--------------------------------------
+This script tests the token management system.
+"""
+
+import os
+import sys
+from security import TokenManager, SecurityMonitor
+
+def main():
+    """Main test function."""
+    print("=" * 50)
+    print("🔑 NOVAXA Bot Token Management Test")
+    print("=" * 50)
+    print()
+    
+    os.environ["NOVAXA_MASTER_KEY"] = "test_master_key"
+    print("✅ Master key set for testing")
+    
+    token_manager = TokenManager()
+    print("✅ Token manager initialized")
+    
+    token_id = token_manager.add_token("test_token_123456789", "Test Token", 123456789)
+    print(f"✅ Test token added with ID: {token_id}")
+    
+    tokens = token_manager.get_tokens()
+    print("\n📋 Token List:")
+    for token in tokens:
+        status = "ACTIVE" if token["active"] else token["status"].upper()
+        print(f"  - ID: {token['id']}")
+        print(f"    Name: {token['name']}")
+        print(f"    Status: {status}")
+        print(f"    Created: {token['created'][:10]}")
+        print()
+    
+    if token_manager.activate_token(token_id):
+        print(f"✅ Token {token_id} activated")
+    else:
+        print(f"❌ Failed to activate token {token_id}")
+    
+    active_token = token_manager.get_token()
+    print(f"✅ Active token: {active_token[:5]}...{active_token[-5:]}")
+    
+    security_monitor = SecurityMonitor()
+    security_monitor.log_event("token_test", {"token_id": token_id}, 123456789)
+    print("✅ Security event logged")
+    
+    print("\n✅ Token management test completed successfully")
+
+if __name__ == "__main__":
+    main()
+TESTEOF
+    echo -e "${GREEN}Test script created${RESET}"
+fi
+
+echo -e "\n${BOLD}${GREEN}=== Making scripts executable ===${RESET}"
+chmod +x setup_and_run.sh
+chmod +x start_bot.sh
+chmod +x start_dashboard.sh
+chmod +x *.py
+
+echo -e "\n${BOLD}${GREEN}=== Setup Complete! ===${RESET}"
+echo -e "\n${BOLD}${BLUE}What would you like to do now?${RESET}"
+echo -e "1. Start the bot"
+echo -e "2. Start the dashboard"
+echo -e "3. Exit"
+read -p "Enter your choice (1-3): " CHOICE
+
+case $CHOICE in
+    1)
+        echo -e "\n${GREEN}Starting the bot...${RESET}"
+        ./start_bot.sh
+        ;;
+    2)
+        echo -e "\n${GREEN}Starting the dashboard...${RESET}"
+        ./start_dashboard.sh
+        ;;
+    3)
+        echo -e "\n${GREEN}Setup completed. You can start the bot later with:${RESET}"
+        echo -e "  ./start_bot.sh"
+        echo -e "\n${GREEN}Or start the dashboard with:${RESET}"
+        echo -e "  ./start_dashboard.sh"
+        ;;
+    *)
+        echo -e "\n${RED}Invalid choice. Exiting.${RESET}"
+        ;;
+esac
+
+echo -e "\n${BOLD}${GREEN}Enjoy your NOVAXA Bot!${RESET}"
