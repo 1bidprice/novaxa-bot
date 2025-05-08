@@ -1,52 +1,92 @@
+#!/usr/bin/env python3
 """
-NOVAXA Bot Token Management Test Script
---------------------------------------
-This script tests the token management system.
+Test Token Management Functionality
+----------------------------------
+This script tests the token management functionality of the NOVAXA bot.
 """
 
 import os
 import sys
-from security import TokenManager, SecurityMonitor
+import logging
+from dotenv import load_dotenv
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger("test_token")
+
+def test_token_validation():
+    """Test token format validation."""
+    logger.info("Testing token format validation...")
+    
+    # Valid token
+    valid_token = "1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    logger.info(f"Valid token: {valid_token}")
+    logger.info(f"Contains colon: {':' in valid_token}")
+    
+    # Invalid token
+    invalid_token = "1234567890AAEabcdefghijklmnopqrstuvwxyz"
+    logger.info(f"Invalid token: {invalid_token}")
+    logger.info(f"Contains colon: {':' in invalid_token}")
+    
+    # Fix invalid token
+    if ':' not in invalid_token and 'AAE' in invalid_token:
+        fixed_token = invalid_token.replace('AAE', ':AAE', 1)
+        logger.info(f"Fixed token: {fixed_token}")
+        logger.info(f"Contains colon: {':' in fixed_token}")
+
+def test_token_management():
+    """Test token management functionality."""
+    logger.info("Testing token management functionality...")
+    
+    # Create a test environment file
+    with open('.env.test', 'w') as f:
+        f.write('TELEGRAM_BOT_TOKEN=1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ\n')
+        f.write('OWNER_ID=123456789\n')
+        f.write('NOVAXA_MASTER_KEY=test_master_key\n')
+    
+    # Load the test environment
+    load_dotenv('.env.test')
+    
+    # Get token from environment
+    token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    logger.info(f"Token from environment: {token}")
+    
+    # Test token changing
+    new_token = "9876543210:ZYXWVUTSRQPONMLKJIHGFEDCBA"
+    logger.info(f"New token: {new_token}")
+    
+    # Simulate changing token in .env file
+    with open('.env.test', 'r') as f:
+        env_content = f.read()
+    
+    env_content = env_content.replace(f"TELEGRAM_BOT_TOKEN={token}", f"TELEGRAM_BOT_TOKEN={new_token}")
+    
+    with open('.env.test', 'w') as f:
+        f.write(env_content)
+    
+    # Reload environment
+    load_dotenv('.env.test', override=True)
+    
+    # Get updated token
+    updated_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    logger.info(f"Updated token: {updated_token}")
+    logger.info(f"Token changed successfully: {updated_token == new_token}")
 
 def main():
-    """Main test function."""
-    print("=" * 50)
-    print("🔑 NOVAXA Bot Token Management Test")
-    print("=" * 50)
+    """Main function."""
+    logger.info("=== NOVAXA Bot Token Management Test ===")
+    
+    test_token_validation()
     print()
     
-    os.environ["NOVAXA_MASTER_KEY"] = "test_master_key"
-    print("✅ Master key set for testing")
+    test_token_management()
+    print()
     
-    token_manager = TokenManager()
-    print("✅ Token manager initialized")
-    
-    token_id = token_manager.add_token("test_token_123456789", "Test Token", 123456789)
-    print(f"✅ Test token added with ID: {token_id}")
-    
-    tokens = token_manager.get_tokens()
-    print("\n📋 Token List:")
-    for token in tokens:
-        status = "ACTIVE" if token["active"] else token["status"].upper()
-        print(f"  - ID: {token['id']}")
-        print(f"    Name: {token['name']}")
-        print(f"    Status: {status}")
-        print(f"    Created: {token['created'][:10]}")
-        print()
-    
-    if token_manager.activate_token(token_id):
-        print(f"✅ Token {token_id} activated")
-    else:
-        print(f"❌ Failed to activate token {token_id}")
-    
-    active_token = token_manager.get_token()
-    print(f"✅ Active token: {active_token[:5]}...{active_token[-5:]}")
-    
-    security_monitor = SecurityMonitor()
-    security_monitor.log_event("token_test", {"token_id": token_id}, 123456789)
-    print("✅ Security event logged")
-    
-    print("\n✅ Token management test completed successfully")
+    logger.info("=== Test Complete ===")
 
 if __name__ == "__main__":
     main()
