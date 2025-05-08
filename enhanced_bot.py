@@ -18,6 +18,8 @@ from flask import Flask, request, jsonify
 import telebot
 from telebot import types
 
+from security import TokenManager, SecurityMonitor, IPProtection
+
 load_dotenv()
 
 # Flask app
@@ -34,15 +36,22 @@ file_handler = logging.FileHandler("logs/bot.log")
 file_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
 logger.addHandler(file_handler)
 
+token_manager = TokenManager()
+security_monitor = SecurityMonitor()
+ip_protection = IPProtection(
+    owner_id=int(os.environ.get("OWNER_ID", "0"))
+)
+
 # Load environment
-TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TOKEN = token_manager.get_token() or os.environ.get("TELEGRAM_BOT_TOKEN")
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 PORT = int(os.environ.get("PORT", "8443"))
 WEBHOOK_ENABLED = os.environ.get("WEBHOOK_ENABLED", "true").lower() == "true"
 ADMIN_IDS = [int(x) for x in os.environ.get("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
+OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 
 if not TOKEN:
-    logger.error("Missing TELEGRAM_BOT_TOKEN")
+    logger.error("No Telegram token provided")
     sys.exit(1)
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
@@ -63,6 +72,10 @@ def check_rate_limit(user_id: int) -> bool:
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
+
+def is_owner(user_id: int) -> bool:
+    """Check if a user is the owner."""
+    return user_id == OWNER_ID and ip_protection.verify_owner(user_id)
 
 # Routes
 @app.route("/", methods=["GET"])
@@ -105,6 +118,146 @@ def handle_status(message):
 def callback_query(call):
     if call.data == "status":
         bot.answer_callback_query(call.id, "✅ NOVAXA is healthy.")
+
+@bot.message_handler(commands=["addtoken"])
+def handle_add_token(message):
+    """Add a new token."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+        
+    if not is_owner(user_id):
+        bot.reply_to(
+            message, 
+            "⛔ You don't have permission to manage tokens."
+        )
+        security_monitor.log_event(
+            "unauthorized_token_access",
+            {"command": "addtoken"},
+            user_id
+        )
+        return
+    
+    parts = message.text.split()
+    if len(parts) < 2:
+        bot.reply_to(
+            message, 
+            "❌ Please provide a token.\n\nUsage: /addtoken [TOKEN] [NAME]"
+        )
+        return
+        
+    token = parts[1]
+    name = " ".join(parts[2:]) if len(parts) > 2 else "Default"
+    
+    token_id = token_manager.add_token(token, name, user_id)
+    
+    bot.reply_to(
+        message, 
+        f"✅ Token added with ID: `{token_id}`\n\n"
+        f"Use /activatetoken {token_id} to activate this token.",
+        parse_mode="Markdown"
+    )
+    
+    security_monitor.log_event(
+        "token_added",
+        {"token_id": token_id, "name": name},
+        user_id
+    )
+
+@bot.message_handler(commands=["activatetoken"])
+def handle_activate_token(message):
+    """Activate a token."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+        
+    if not is_owner(user_id):
+        bot.reply_to(
+            message, 
+            "⛔ You don't have permission to manage tokens."
+        )
+        security_monitor.log_event(
+            "unauthorized_token_access",
+            {"command": "activatetoken"},
+            user_id
+        )
+        return
+    
+    parts = message.text.split()
+    if len(parts) < 2:
+        bot.reply_to(
+            message, 
+            "❌ Please provide a token ID.\n\nUsage: /activatetoken [TOKEN_ID]"
+        )
+        return
+        
+    token_id = parts[1]
+    
+    if token_manager.activate_token(token_id):
+        bot.reply_to(
+            message, 
+            f"✅ Token {token_id} activated.\n\n"
+            f"⚠️ Please restart the bot to apply the new token."
+        )
+        
+        security_monitor.log_event(
+            "token_activated",
+            {"token_id": token_id},
+            user_id
+        )
+    else:
+        bot.reply_to(
+            message, 
+            f"❌ Failed to activate token {token_id}."
+        )
+
+@bot.message_handler(commands=["tokens"])
+def handle_list_tokens(message):
+    """List all tokens."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+        
+    if not is_owner(user_id):
+        bot.reply_to(
+            message, 
+            "⛔ You don't have permission to view tokens."
+        )
+        security_monitor.log_event(
+            "unauthorized_token_access",
+            {"command": "tokens"},
+            user_id
+        )
+        return
+    
+    tokens = token_manager.get_tokens()
+    
+    if not tokens: 
+        bot.reply_to(
+            message, 
+            "No tokens found."
+        )
+        return
+    
+    tokens_text = "🔑 *Tokens*\n\n"
+    for token in tokens:
+        status = "✅ Active" if token["active"] else ("⚪ Inactive" if token["status"] == "inactive" else "⚪ Standby")
+        tokens_text += f"*ID:* `{token['id']}`\n"
+        tokens_text += f"*Name:* {token['name']}\n"
+        tokens_text += f"*Status:* {status}\n"
+        tokens_text += f"*Created:* {token['created'][:10]}\n\n"
+    
+    bot.reply_to(
+        message, 
+        tokens_text,
+        parse_mode="Markdown"
+    )
 
 # Entry point
 def start_bot():
