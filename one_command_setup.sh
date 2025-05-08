@@ -10,7 +10,7 @@ cd novaxa-bot
 
 git checkout devin/1746721919-automated-setup
 
-chmod +x auto_setup.sh
-./auto_setup.sh
+chmod +x setup_and_run.sh
+./setup_and_run.sh
 
 echo "Η εγκατάσταση ολοκληρώθηκε!"
