@@ -25,7 +25,7 @@ def setup_parser():
     add_parser = subparsers.add_parser("add", help="Add a new token")
     add_parser.add_argument("token", help="Telegram bot token")
     add_parser.add_argument("--name", "-n", help="Name for the token", default="Default")
-    add_parser.add_argument("--owner", "-o", help="Owner ID", type=int)
+    add_parser.add_argument("--owner", "-o", help="Owner ID", type=int, default=None)
     
     activate_parser = subparsers.add_parser("activate", help="Activate a token")
     activate_parser.add_argument("token_id", help="Token ID to activate")

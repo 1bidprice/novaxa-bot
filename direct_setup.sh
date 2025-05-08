@@ -174,6 +174,49 @@ fi
 
 # Create start scripts
 echo -e "\n${BOLD}${GREEN}=== Δημιουργία scripts εκκίνησης ===${RESET}"
-cat > start_bot.sh << EOL
+cat > start_bot.sh << 'EOL'
 #!/bin/bash
 python enhanced_bot.py
+EOL
+EOL
+
+chmod +x start_bot.sh
+
+cat > start_dashboard.sh << 'EOL'
+#!/bin/bash
+python termux_dashboard.py
+EOL
+EOL
+
+chmod +x start_dashboard.sh
+
+echo -e "\n${BOLD}${GREEN}=== Η εγκατάσταση ολοκληρώθηκε! ===${RESET}"
+echo -e "\n${BOLD}${BLUE}Το NOVAXA Bot έχει ρυθμιστεί με δυνατότητες διαχείρισης token.${RESET}"
+
+echo -e "\n${YELLOW}Τι θα θέλατε να κάνετε τώρα;${RESET}"
+echo -e "1. Εκκίνηση του bot"
+echo -e "2. Εκκίνηση του dashboard"
+echo -e "3. Έξοδος"
+read -p "Εισάγετε την επιλογή σας (1-3): " CHOICE
+
+case $CHOICE in
+    1)
+        echo -e "\n${GREEN}Εκκίνηση του bot...${RESET}"
+        ./start_bot.sh
+        ;;
+    2)
+        echo -e "\n${GREEN}Εκκίνηση του dashboard...${RESET}"
+        ./start_dashboard.sh
+        ;;
+    3)
+        echo -e "\n${GREEN}Η εγκατάσταση ολοκληρώθηκε. Μπορείτε να ξεκινήσετε το bot αργότερα με:${RESET}"
+        echo -e "  ./start_bot.sh"
+        echo -e "\n${GREEN}Ή να ξεκινήσετε το dashboard με:${RESET}"
+        echo -e "  ./start_dashboard.sh"
+        ;;
+    *)
+        echo -e "\n${RED}Μη έγκυρη επιλογή. Έξοδος.${RESET}"
+        ;;
+esac
+
+echo -e "\n${BOLD}${GREEN}Απολαύστε το NOVAXA Bot σας!${RESET}"
