@@ -310,12 +310,19 @@ EOL
 chmod +x simple_bot.py
 
 echo -e "\n${BOLD}${GREEN}=== Δημιουργία script εκκίνησης ===${RESET}"
+echo -e "✓ Κατέβασμα του delete_webhook.py"
+curl -s -o delete_webhook.py https://raw.githubusercontent.com/1bidprice/novaxa-bot/devin/1746721919-automated-setup/delete_webhook.py
+chmod +x delete_webhook.py
+
 cat > start_simple_bot.sh << 'EOL'
 cd "$(dirname "$0")"
 
 echo "=== NOVAXA Bot Εκκίνηση (Απλή Έκδοση) ==="
 echo "Έλεγχος και διόρθωση format token..."
 python fix_token.py
+
+echo "Διαγραφή webhook (αν υπάρχει)..."
+python delete_webhook.py
 
 echo "Εκκίνηση bot..."
 python simple_bot.py
