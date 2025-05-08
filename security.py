@@ -38,10 +38,14 @@ class TokenManager:
         self.master_key = master_key or os.environ.get("NOVAXA_MASTER_KEY")
         self.tokens = {}
         self.active_token_id = None
+        self.backup_file = f"{token_file}.backup"
+        self.owner_id = int(os.environ.get("OWNER_ID", "0"))
         
         os.makedirs(os.path.dirname(token_file), exist_ok=True)
         
         self._load_tokens()
+        
+        self._backup_tokens()
         
         logger.info("Token manager initialized")
     
@@ -60,6 +64,17 @@ class TokenManager:
         except Exception as e:
             logger.error(f"Error loading tokens: {e}")
     
+    def _backup_tokens(self):
+        """Create a backup of tokens."""
+        try:
+            if os.path.exists(self.token_file):
+                with open(self.token_file, "r") as src:
+                    with open(self.backup_file, "w") as dst:
+                        dst.write(src.read())
+                logger.info("Tokens backup created")
+        except Exception as e:
+            logger.error(f"Error creating tokens backup: {e}")
+    
     def _save_tokens(self):
         """Save tokens to file."""
         try:
@@ -71,6 +86,8 @@ class TokenManager:
             
             with open(self.token_file, "w") as f:
                 json.dump(data, f, indent=2)
+            
+            self._backup_tokens()
                 
             logger.info("Tokens configuration saved")
         except Exception as e:
@@ -287,6 +304,120 @@ class TokenManager:
             "status": token["status"],
             "active": token_id == self.active_token_id,
         } for token_id, token in self.tokens.items()]
+        
+    def emergency_reset(self, owner_id: int = None) -> bool:
+        """Emergency reset of tokens.
+        
+        This is a safety valve function that allows the owner to reset tokens
+        in case of compromise or other emergency.
+        
+        Args:
+            owner_id: Owner ID to verify
+            
+        Returns:
+            bool: True if reset was successful, False otherwise
+        """
+        if owner_id is not None and owner_id != self.owner_id:
+            logger.warning(f"Unauthorized emergency reset attempt by user {owner_id}")
+            return False
+            
+        try:
+            if os.path.exists(self.backup_file):
+                with open(self.backup_file, "r") as f:
+                    data = json.load(f)
+                    self.tokens = data.get("tokens", {})
+                    self.active_token_id = data.get("active_token_id")
+                    logger.info("Tokens restored from backup during emergency reset")
+            else:
+                for token_id in self.tokens:
+                    self.tokens[token_id]["status"] = "inactive"
+                self.active_token_id = None
+                logger.info("All tokens deactivated during emergency reset")
+                
+            self._save_tokens()
+            return True
+        except Exception as e:
+            logger.error(f"Error during emergency reset: {e}")
+            return False
+            
+    def export_tokens(self, include_values: bool = False) -> str:
+        """Export tokens to JSON string.
+        
+        Args:
+            include_values: Whether to include actual token values
+            
+        Returns:
+            str: JSON string with token data
+        """
+        if include_values:
+            export_data = {
+                "tokens": {
+                    token_id: {
+                        **token,
+                        "token": self._decrypt(token["token"]) if include_values else "[REDACTED]"
+                    }
+                    for token_id, token in self.tokens.items()
+                },
+                "active_token_id": self.active_token_id,
+                "exported_at": datetime.now().isoformat()
+            }
+        else:
+            export_data = {
+                "tokens": {
+                    token_id: {
+                        **{k: v for k, v in token.items() if k != "token"},
+                        "token": "[REDACTED]"
+                    }
+                    for token_id, token in self.tokens.items()
+                },
+                "active_token_id": self.active_token_id,
+                "exported_at": datetime.now().isoformat()
+            }
+            
+        return json.dumps(export_data, indent=2)
+        
+    def import_tokens(self, json_data: str, owner_id: int = None) -> bool:
+        """Import tokens from JSON string.
+        
+        Args:
+            json_data: JSON string with token data
+            owner_id: Owner ID to verify
+            
+        Returns:
+            bool: True if import was successful, False otherwise
+        """
+        if owner_id is not None and owner_id != self.owner_id:
+            logger.warning(f"Unauthorized token import attempt by user {owner_id}")
+            return False
+            
+        try:
+            data = json.loads(json_data)
+            
+            self._backup_tokens()
+            
+            imported_tokens = data.get("tokens", {})
+            
+            for token_id, token_data in imported_tokens.items():
+                if "token" in token_data and token_data["token"] != "[REDACTED]":
+                    # Encrypt the token value
+                    token_data["token"] = self._encrypt(token_data["token"])
+                elif token_id in self.tokens:
+                    token_data["token"] = self.tokens[token_id]["token"]
+                else:
+                    logger.warning(f"Skipping import of token {token_id} with redacted value")
+                    continue
+                    
+                self.tokens[token_id] = token_data
+                
+            if "active_token_id" in data and data["active_token_id"] in self.tokens:
+                self.active_token_id = data["active_token_id"]
+                
+            self._save_tokens()
+            logger.info(f"Imported {len(imported_tokens)} tokens")
+            return True
+        except Exception as e:
+            logger.error(f"Error importing tokens: {e}")
+            return False
 
 
 class SecurityMonitor:

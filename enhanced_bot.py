@@ -259,6 +259,219 @@ def handle_list_tokens(message):
         parse_mode="Markdown"
     )
 
+@bot.message_handler(commands=["emergencyreset"])
+def handle_emergency_reset(message):
+    """Emergency reset of tokens."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+        
+    if not is_owner(user_id):
+        bot.reply_to(
+            message, 
+            "⛔ You don't have permission to perform emergency reset."
+        )
+        security_monitor.log_event(
+            "unauthorized_emergency_reset",
+            {"command": "emergencyreset"},
+            user_id
+        )
+        return
+    
+    parts = message.text.split()
+    if len(parts) < 2 or parts[1].lower() != "confirm":
+        bot.reply_to(
+            message, 
+            "⚠️ This will reset all tokens to their backup state or deactivate them if no backup exists.\n\n"
+            "To confirm, use: /emergencyreset confirm"
+        )
+        return
+    
+    if token_manager.emergency_reset(user_id):
+        bot.reply_to(
+            message, 
+            "✅ Emergency reset completed successfully.\n\n"
+            "Please restart the bot to apply changes."
+        )
+        
+        security_monitor.log_event(
+            "emergency_reset_performed",
+            {},
+            user_id
+        )
+    else:
+        bot.reply_to(
+            message, 
+            "❌ Failed to perform emergency reset."
+        )
+
+@bot.message_handler(commands=["exporttokens"])
+def handle_export_tokens(message):
+    """Export tokens."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+        
+    if not is_owner(user_id):
+        bot.reply_to(
+            message, 
+            "⛔ You don't have permission to export tokens."
+        )
+        security_monitor.log_event(
+            "unauthorized_token_access",
+            {"command": "exporttokens"},
+            user_id
+        )
+        return
+    
+    parts = message.text.split()
+    include_values = len(parts) > 1 and parts[1].lower() == "full"
+    
+    if include_values:
+        bot.reply_to(
+            message, 
+            "⚠️ You are exporting tokens with their values. This is a security risk."
+        )
+    
+    export_data = token_manager.export_tokens(include_values)
+    
+    export_file = f"config/tokens_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    try:
+        with open(export_file, "w") as f:
+            f.write(export_data)
+            
+        bot.reply_to(
+            message, 
+            f"✅ Tokens exported to `{export_file}`\n\n"
+            f"Use the file to backup or transfer tokens.",
+            parse_mode="Markdown"
+        )
+        
+        security_monitor.log_event(
+            "tokens_exported",
+            {"file": export_file, "include_values": include_values},
+            user_id
+        )
+    except Exception as e:
+        bot.reply_to(
+            message, 
+            f"❌ Failed to export tokens: {str(e)}"
+        )
+
+@bot.message_handler(commands=["rotatetoken"])
+def handle_rotate_token(message):
+    """Rotate a token to a new value."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+        
+    if not is_owner(user_id):
+        bot.reply_to(
+            message, 
+            "⛔ You don't have permission to rotate tokens."
+        )
+        security_monitor.log_event(
+            "unauthorized_token_access",
+            {"command": "rotatetoken"},
+            user_id
+        )
+        return
+    
+    parts = message.text.split()
+    if len(parts) < 3:
+        bot.reply_to(
+            message, 
+            "❌ Please provide a token ID and new token value.\n\n"
+            "Usage: /rotatetoken [TOKEN_ID] [NEW_TOKEN]"
+        )
+        return
+        
+    token_id = parts[1]
+    new_token = parts[2]
+    
+    if token_manager.rotate_token(token_id, new_token):
+        bot.reply_to(
+            message, 
+            f"✅ Token {token_id} rotated to new value.\n\n"
+            f"⚠️ Please restart the bot to apply the new token."
+        )
+        
+        security_monitor.log_event(
+            "token_rotated",
+            {"token_id": token_id},
+            user_id
+        )
+    else:
+        bot.reply_to(
+            message, 
+            f"❌ Failed to rotate token {token_id}."
+        )
+
+@bot.message_handler(commands=["importtokens"])
+def handle_import_tokens(message):
+    """Import tokens from a file."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+        
+    if not is_owner(user_id):
+        bot.reply_to(
+            message, 
+            "⛔ You don't have permission to import tokens."
+        )
+        security_monitor.log_event(
+            "unauthorized_token_access",
+            {"command": "importtokens"},
+            user_id
+        )
+        return
+    
+    parts = message.text.split()
+    if len(parts) < 2:
+        bot.reply_to(
+            message, 
+            "❌ Please provide a file path.\n\n"
+            "Usage: /importtokens [FILE_PATH]"
+        )
+        return
+        
+    file_path = parts[1]
+    
+    try:
+        with open(file_path, "r") as f:
+            json_data = f.read()
+            
+        if token_manager.import_tokens(json_data, user_id):
+            bot.reply_to(
+                message, 
+                "✅ Tokens imported successfully.\n\n"
+                "Please restart the bot to apply changes."
+            )
+            
+            security_monitor.log_event(
+                "tokens_imported",
+                {"file": file_path},
+                user_id
+            )
+        else:
+            bot.reply_to(
+                message, 
+                "❌ Failed to import tokens."
+            )
+    except Exception as e:
+        bot.reply_to(
+            message, 
+            f"❌ Failed to import tokens: {str(e)}"
+        )
+
 # Entry point
 def start_bot():
     def shutdown(sig, frame):
