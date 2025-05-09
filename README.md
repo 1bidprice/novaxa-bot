@@ -92,6 +92,64 @@ Access the dashboard at `http://localhost:5000`.
 - `/maintenance` - Toggle maintenance mode
 - `/users` - Show user statistics
 
+## Token Management
+
+NOVAXA bot includes a token management system that allows you to maintain control of your bot and protect your intellectual property rights.
+
+### Managing Tokens
+
+```bash
+# List all tokens
+python manage_tokens.py list
+
+# Add a new token
+python manage_tokens.py add YOUR_BOT_TOKEN --name "My Token" --owner YOUR_TELEGRAM_ID
+
+# Activate a token
+python manage_tokens.py activate TOKEN_ID
+
+# Rotate to a new token
+python manage_tokens.py rotate TOKEN_ID NEW_BOT_TOKEN
+
+# Deactivate a token
+python manage_tokens.py deactivate TOKEN_ID
+
+# Delete a token
+python manage_tokens.py delete TOKEN_ID
+```
+
+### Token Management from Telegram
+
+As the bot owner, you can also manage tokens directly from Telegram:
+
+- `/addtoken TOKEN [NAME]` - Add a new token
+- `/activatetoken TOKEN_ID` - Activate a token
+- `/tokens` - List all tokens
+
+### Security Features
+
+- Token encryption using a master key
+- Owner verification for sensitive operations
+- Security event logging
+- Intellectual property protection
+
+### Termux Setup
+
+For mobile development using Termux:
+
+```bash
+# Download the setup script
+curl -o termux_setup.sh https://raw.githubusercontent.com/1bidprice/novaxa-bot/main/termux_setup.sh
+
+# Make it executable
+chmod +x termux_setup.sh
+
+# Run the setup script
+./termux_setup.sh
+```
+
+The setup script will install all required dependencies, create the necessary directory structure, and configure the bot for use in Termux.
+
 ## Deployment
 
 ### Deploying to Render

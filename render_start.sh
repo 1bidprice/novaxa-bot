@@ -26,6 +26,11 @@ if [ ! -f "monitor.py" ]; then
     exit 1
 fi
 
+if [ ! -f "security.py" ]; then
+    echo "Error: security.py not found."
+    exit 1
+fi
+
 if [ ! -f ".env" ]; then
     echo "Creating default .env file..."
     cat > .env << ENVEOF
@@ -49,9 +54,9 @@ else
     pip install python-telegram-bot==13.12 requests>=2.27.1 psutil>=5.9.0 python-dotenv>=0.19.2 flask>=2.0.1 gunicorn>=20.1.0
 fi
 
-if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
-    echo "Warning: TELEGRAM_BOT_TOKEN environment variable not set."
-    echo "Please set the TELEGRAM_BOT_TOKEN environment variable in the Render dashboard."
+if [ -z "$TELEGRAM_BOT_TOKEN" ] && [ -z "$NOVAXA_MASTER_KEY" ]; then
+    echo "Warning: Neither TELEGRAM_BOT_TOKEN nor NOVAXA_MASTER_KEY environment variables are set."
+    echo "Please set at least one of these variables in the Render dashboard."
     echo "For testing purposes, a placeholder token will be used."
     export TELEGRAM_BOT_TOKEN="placeholder_token"
 fi

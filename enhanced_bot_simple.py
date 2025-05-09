@@ -1,7 +1,8 @@
 """
-NOVAXA Telegram Bot
+NOVAXA Telegram Bot (Simplified Version)
+----------------------------------------
 Main module for the NOVAXA Telegram bot.
-Supports both webhook and polling mode.
+This version uses polling mode only for better compatibility with Termux.
 """
 
 import os
@@ -14,7 +15,6 @@ from typing import Dict
 from collections import defaultdict
 
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
 import telebot
 from telebot import types
 
@@ -22,10 +22,6 @@ from security import TokenManager, SecurityMonitor, IPProtection
 
 load_dotenv()
 
-# Flask app
-app = Flask(__name__)
-
-# Logging setup
 os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -42,11 +38,7 @@ ip_protection = IPProtection(
     owner_id=int(os.environ.get("OWNER_ID", "0"))
 )
 
-# Load environment
 TOKEN = token_manager.get_token() or os.environ.get("TELEGRAM_BOT_TOKEN")
-WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
-PORT = int(os.environ.get("PORT", "8443"))
-WEBHOOK_ENABLED = os.environ.get("WEBHOOK_ENABLED", "true").lower() == "true"
 ADMIN_IDS = [int(x) for x in os.environ.get("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 
@@ -56,7 +48,6 @@ if not TOKEN:
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# Rate limiting
 rate_limits = defaultdict(lambda: {"count": 0, "last_reset": time.time()})
 RATE_LIMIT_INTERVAL = 60
 RATE_LIMIT_MAX = 30
@@ -77,25 +68,6 @@ def is_owner(user_id: int) -> bool:
     """Check if a user is the owner."""
     return user_id == OWNER_ID and ip_protection.verify_owner(user_id)
 
-# Routes
-@app.route("/", methods=["GET"])
-def index():
-    return jsonify({"status": "ok", "message": "NOVAXA bot is running"})
-
-@app.route("/setwebhook", methods=["GET"])
-def set_webhook():
-    success = bot.set_webhook(url=WEBHOOK_URL)
-    return jsonify({"status": "success" if success else "failure"})
-
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    if request.headers.get("content-type") == "application/json":
-        update = telebot.types.Update.de_json(request.stream.read().decode("utf-8"))
-        bot.process_new_updates([update])
-        return jsonify({"status": "ok"})
-    return jsonify({"status": "error", "message": "Invalid content type"})
-
-# Command handlers
 @bot.message_handler(commands=["start"])
 def handle_start(message):
     user_id = message.from_user.id
@@ -472,7 +444,53 @@ def handle_import_tokens(message):
             f"❌ Failed to import tokens: {str(e)}"
         )
 
-# Entry point
+@bot.message_handler(commands=["help"])
+def handle_help(message):
+    """Show help message."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+    
+    help_text = "🤖 *NOVAXA Bot Commands*\n\n"
+    
+    help_text += "*Basic Commands:*\n"
+    help_text += "/start - Start the bot\n"
+    help_text += "/status - Check bot status\n"
+    help_text += "/help - Show this help message\n\n"
+    
+    if is_owner(user_id):
+        help_text += "*Token Management (Owner Only):*\n"
+        help_text += "/tokens - List all tokens\n"
+        help_text += "/addtoken [TOKEN] [NAME] - Add a new token\n"
+        help_text += "/activatetoken [TOKEN_ID] - Activate a token\n"
+        help_text += "/rotatetoken [TOKEN_ID] [NEW_TOKEN] - Rotate a token\n"
+        help_text += "/exporttokens - Export tokens\n"
+        help_text += "/importtokens [FILE_PATH] - Import tokens\n"
+        help_text += "/emergencyreset confirm - Emergency reset of tokens\n"
+    
+    bot.reply_to(
+        message,
+        help_text,
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(commands=["getid"])
+def handle_get_id(message):
+    """Get user ID."""
+    user_id = message.from_user.id
+    
+    if check_rate_limit(user_id):
+        bot.reply_to(message, "⚠️ Rate limit exceeded.")
+        return
+    
+    bot.reply_to(
+        message,
+        f"Your Telegram ID is: `{user_id}`",
+        parse_mode="Markdown"
+    )
+
 def start_bot():
     def shutdown(sig, frame):
         logger.info("Shutting down...")
@@ -481,16 +499,9 @@ def start_bot():
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    if WEBHOOK_ENABLED:
-        logger.info("Starting bot in webhook mode...")
-        bot.remove_webhook()
-        time.sleep(1)
-        bot.set_webhook(url=WEBHOOK_URL)
-        app.run(host="0.0.0.0", port=PORT)
-    else:
-        logger.info("Starting bot in polling mode...")
-        bot.remove_webhook()
-        bot.infinity_polling()
+    logger.info("Starting bot in polling mode...")
+    bot.remove_webhook()
+    bot.infinity_polling()
 
 if __name__ == "__main__":
     start_bot()
