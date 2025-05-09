@@ -154,7 +154,7 @@ def handle_token(message):
     
     if len(command_parts) == 1:
         help_text = """
-💼 Διαχείριση Token
+💼 Διαχείριση Token (Δικλείδα Ασφαλείας)
 
 Διαθέσιμες εντολές:
 /token info - Δείτε πληροφορίες για το τρέχον token
@@ -218,7 +218,17 @@ def handle_token(message):
                                     else:
                                         f.write(line)
                             
-                            bot.reply_to(message, "✅ Το token ενημερώθηκε επιτυχώς! Επανεκκινήστε το bot για να εφαρμοστούν οι αλλαγές.")
+                            bot_info = data.get('result', {})
+                            success_text = f"""
+✅ Token ενημερώθηκε επιτυχώς!
+
+🤖 Νέο Bot: @{bot_info.get('username')} ({bot_info.get('first_name')})
+🆔 Bot ID: {bot_info.get('id')}
+🔑 Token: {new_token[:4]}...{new_token[-4:]}
+
+⚠️ Παρακαλώ επανεκκινήστε το bot για να εφαρμοστούν οι αλλαγές.
+"""
+                            bot.reply_to(message, success_text)
                             logging.info(f"Token changed by owner (ID: {message.from_user.id})")
                         except Exception as e:
                             logging.error(f"Error updating token: {str(e)}")
