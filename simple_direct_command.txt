@@ -1,0 +1,1 @@
+curl -s -o direct_setup.sh https://raw.githubusercontent.com/1bidprice/novaxa-bot/devin/1746721919-automated-setup/direct_setup.sh && chmod +x direct_setup.sh && ./direct_setup.sh

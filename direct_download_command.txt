@@ -1,0 +1,1 @@
+curl -s -o download_setup.sh https://raw.githubusercontent.com/1bidprice/novaxa-bot/devin/1746721919-automated-setup/download_setup.sh && chmod +x download_setup.sh && ./download_setup.sh

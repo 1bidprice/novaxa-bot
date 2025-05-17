@@ -1,0 +1,1 @@
+curl -s -o novaxa_installer.sh https://raw.githubusercontent.com/1bidprice/novaxa-bot/devin/1746721919-automated-setup/termux_installer_simple.sh && chmod +x novaxa_installer.sh && ./novaxa_installer.sh
